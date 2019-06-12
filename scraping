@@ -31,11 +31,11 @@ class AllMatchesSpider(scrapy.Spider):
 			yield Request(absolute_url_scorecard,callback=self.parse_result,meta={'absolute_url_scorecard':absolute_url_scorecard})
 	def parse_result(self,response):
 		 result= response.xpath('//div[@class="cscore_notes"]/span/text()').extract_first()
-        result=result.split(" ")
-        Winning_Team =result[0]
-        Winning_Margin =int(result[3])
-        Runs_or_Wickets =result[4]
-        yield{'Winning_Team':Winning_Team,
-        'Winning_Margin':Winning_Margin,
-        'Runs_or_Wickets':Runs_or_Wickets}
+        	 result=result.split(" ")
+        	 Winning_Team =result[0]
+        	 Winning_Margin =int(result[3])
+        	 Runs_or_Wickets =result[4]
+        	 yield{'Winning_Team':Winning_Team,
+        	 'Winning_Margin':Winning_Margin,
+        	 'Runs_or_Wickets':Runs_or_Wickets}
 
