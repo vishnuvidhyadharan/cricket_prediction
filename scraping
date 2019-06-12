@@ -1,1 +1,41 @@
+import scrapy
+from scrapy import Selector
+from scrapy.http import Request
+
+
+class AllMatchesSpider(scrapy.Spider):
+	name = 'all_matches'
+	allowed_domains = ['www.espncricinfo.com']
+	start_urls = ['http://www.espncricinfo.com/ci/engine/series/index.html']
+	def parse(self, response):
+		seasons=response.xpath('//*[@class="season-links"]/a/@href').extract()
+		x=0
+		for season in seasons:
+			if x<10:
+				absolute_url=response.urljoin(season)
+				yield Request(absolute_url,callback=self.parse_season)
+				#return absolute_url
+				x+=1
+				self.logger.info('parse\n')
+	def parse_season(self,response):
+		all_one_day=response.xpath('//section[@class="series-summary-wrap"]').extract()[1]
+		y=str("#")+all_one_day+str("#")
+		sel=Selector(text=y)
+		one_day=sel.xpath('//div[@class="teams"]/a/@href').extract()
+		for day in one_day:
+			yield Request(day,callback=self.parse_day,meta={'day':day})
+	def parse_day(self,response):
+		scorecards= response.xpath('//ul[@class="cscore_list"]/li/a[contains(@rel, "event,boxscore,scorecard,match,desktop")]/@href').extract()
+		for scorecard in scorecards:
+			absolute_url_scorecard= "www.espncricinfo.com"+scorecard
+			yield Request(absolute_url_scorecard,callback=self.parse_result,meta={'absolute_url_scorecard':absolute_url_scorecard})
+	def parse_result(self,response):
+		 result= response.xpath('//div[@class="cscore_notes"]/span/text()').extract_first()
+        result=result.split(" ")
+        Winning_Team =result[0]
+        Winning_Margin =int(result[3])
+        Runs_or_Wickets =result[4]
+        yield{'Winning_Team':Winning_Team,
+        'Winning_Margin':Winning_Margin,
+        'Runs_or_Wickets':Runs_or_Wickets}
 
