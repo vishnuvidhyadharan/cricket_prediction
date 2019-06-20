@@ -1,0 +1,85 @@
+# -*- coding: utf-8 -*-
+import scrapy
+from scrapy import Selector
+from odi_data.items import OdiDataItem
+import pandas as pd
+from itertools import chain
+from collections import defaultdict
+import csv
+
+
+class OdiSpider(scrapy.Spider):
+	name = 'odi'
+	allowed_domains = ['www.espncricinfo.com']
+	start_urls = []
+	with open('player_url.csv','r') as urls:
+		for url in urls:
+			start_urls.append(url)
+	def parse(self, response):
+		Player_name=response.xpath('//div[@class="ciPlayernametxt"]/div/h1/text()').extract_first()
+		Batting_style=response.xpath('//p[@class="ciPlayerinformationtxt"]/b[.="Batting style"]/following-sibling::span[1]/text()').get()
+		Bowling_syle=response.xpath('//p[@class="ciPlayerinformationtxt"]/b[.="Bowling style"]/following-sibling::span[1]/text()').get()
+		details={'Player_name':Player_name,
+				'Batting_style':Batting_style,
+				'Bowling_syle':Bowling_syle}	
+
+		#extracting the entire class
+		batting=response.xpath('//*[@class="engineTable"]').extract()[0]
+
+		#extracting batting scores
+		#using selector
+		y=str("#")+batting+str("#")
+		sel=Selector(text=y)
+		header=sel.xpath('//thead/tr/th/text()').extract()
+		data= sel.xpath('//tbody/tr/td[contains(@title, "record rank: 2")]/following-sibling::td/text()').extract()
+		
+		Use this selector 
+		'td:contains("ODIs") ~ td::text' for ODIs 
+		and '.engineTable:contains("ODIs") > thead th::text' 
+		for headers to make them less verbos
+		#iterating through data and creating a dictionary
+		col=[]
+		for head in header:
+			col.append((head,[]))
+		i=0
+		for j in range(len(data)):
+			T=data[j]
+
+			col[i][1].append(T)
+			i+=1
+		Dict={title:column for (title,column) in col}
+		
+		#extracting bowling scores
+		#using selector
+		bowling=response.xpath('//*[@class="engineTable"]').extract()[1]
+		z=str("#")+bowling+str("#")
+		selz=Selector(text=z)
+		header_bowling=selz.xpath('//thead/tr/th/text()').extract()
+		data_bowling= selz.xpath('//tbody/tr/td[contains(@title, "record rank: 2")]/following-sibling::td/text()').extract()
+		coll=[]
+		for head in header_bowling:
+			#changing the header name
+			x=head+str('_bowl')
+			coll.append((x,[]))
+		i=0
+		for j in range(len(data_bowling)):
+			T=data_bowling[j]
+
+			coll[i][1].append(T)
+			i+=1
+		
+
+		Dicti={title:column for (title,column) in coll}
+
+		#merging dict
+		y={}
+		y.update(details)
+		y.update(Dict)
+		y.update(Dicti)
+		return y
+		# with open('itemsall.csv','w') as f:
+		# 	w=csv.DictWriter(f,y.keys())
+		# 	w.writeheader()
+		# 	w.writerow(y)
+		
+		
