@@ -31,9 +31,9 @@ class AllMatchesSpider(scrapy.Spider):
 		sel=Selector(text=y)
 		one_day=sel.xpath('//div[@class="teams"]/a/@href').extract()
 		all_countries=('England', 'Afghanistan', 'New Zealand', 'South Africa',
-							 'Australia', 'Bangladesh', 'Sri Lanka', 'India', 'Pakistan', 'West Indies',
-							 'england', 'afghanistan', 'new zealand', 'south africa', 'australia',
-							  'bangladesh', 'sri lanka', 'india', 'pakistan', 'west indies')
+				'Australia', 'Bangladesh', 'Sri Lanka', 'India', 'Pakistan', 'West Indies',
+				'england', 'afghanistan', 'new zealand', 'south africa', 'australia',
+				'bangladesh', 'sri lanka', 'india', 'pakistan', 'west indies')
 		for day in one_day:
 			d=day.split('-')
 			for word in d:
@@ -94,10 +94,10 @@ class AllMatchesSpider(scrapy.Spider):
 
 		for p in Player_URLs:
 			yield Request(p,callback=self.parse_players,meta={'p':p,
-															'Winning_Team':Winning_Team,
-															'Winning_Margin':Winning_Margin,
-															'Runs_or_Wickets':Runs_or_Wickets,
-															'Season':Season															})
+									'Winning_Team':Winning_Team,
+									'Winning_Margin':Winning_Margin,
+									'Runs_or_Wickets':Runs_or_Wickets,
+									'Season':Season})
 		#meta will send one data at a time
 			
 	def parse_players(self,response):
