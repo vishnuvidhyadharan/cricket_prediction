@@ -5,7 +5,7 @@ from scrapy.http import Request
 
 class AllMatchesSpider(scrapy.Spider):
 	name = 'all_matches'
-	allowed_domains = ['www.espncricinfo.com']
+	allowed_domains = ['espncricinfo.com']
 	start_urls = ['http://www.espncricinfo.com/ci/engine/series/index.html']
 	xpaths='''response.xpath('//section[@class="series-summary-wrap"]').extract()[1]''','''
 			response.xpath('//ul[@class="cscore_list"]/li/a[contains(@rel,
@@ -18,40 +18,45 @@ class AllMatchesSpider(scrapy.Spider):
 	def parse(self, response):
 		seasons=response.xpath('//*[@class="season-links"]/a/@href').extract()
 		x=0
+		# for season in range(2,len(seasons)):
 		for season in seasons:
 			if x<35:
 				absolute_url=response.urljoin(season)
-				yield Request(absolute_url,callback=self.parse_season)
+				yield Request(absolute_url,callback=self.parse_season,meta={'absolute_url':absolute_url})
 				#return absolute_url
 				x+=1
 				self.logger.info('parse\n')
 	def parse_season(self,response):
 		all_one_day=response.xpath('//section[@class="series-summary-wrap"]').extract()[1]
 		y=str("#")+all_one_day+str("#")
-		sel=Selector(text=y)
+		sel=Selector(text=y)	
 		one_day=sel.xpath('//div[@class="teams"]/a/@href').extract()
-		all_countries=('England', 'Afghanistan', 'New Zealand', 'South Africa',
-				'Australia', 'Bangladesh', 'Sri Lanka', 'India', 'Pakistan', 'West Indies',
-				'england', 'afghanistan', 'new zealand', 'south africa', 'australia',
-				'bangladesh', 'sri lanka', 'india', 'pakistan', 'west indies')
+		
 		for day in one_day:
-			d=day.split('-')
-			for word in d:
-				if word in all_countries:
-					yield Request(day,callback=self.parse_day,meta={'day':day})
-					break
+			# d=day.split('-')
+			# for word in d:
+			# 	if word in all_countries:
+			yield Request(day,callback=self.parse_day,meta={'day':day})
+					
 			# 	next
 	def parse_day(self,response):
-		scorecards= response.xpath('//ul[@class="cscore_list"]/li/a[contains(@rel, "event,boxscore,scorecard,match,desktop")]/@href').extract()
+		scorecards=[]
+		cards1= response.xpath('//ul[@class="cscore_list"]/li/a[contains(@rel, "event,boxscore,scorecard,match,desktop")]/@href').extract()
+		cards2=response.xpath('//ul[@class="reports-list content_link"]/li/a[contains(text(),"Scorecard")]/@href').getall()
+		if cards1 != None:
+			for card in cards1:
+				card= "http://www.espncricinfo.com"+card
+				scorecards.append(card)
+		if cards2 != None:
+			scorecards.extend(cards2)
 		for scorecard in scorecards:
-			absolute_url_scorecard= "http://www.espncricinfo.com"+scorecard
-			yield Request(absolute_url_scorecard,callback=self.parse_result,meta={'absolute_url_scorecard':absolute_url_scorecard})
+			yield Request(scorecard,callback=self.parse_result,meta={'scorecard':scorecard})
 	def parse_result(self,response):
 		
 		#creating an empty list
 		Player_URLs=[]
 		countries=('New', 'South','Sri','West',
-					'new', 'south','sri','west')
+			'new', 'south','sri','west')
 		
 
 		#getting the match result
@@ -71,9 +76,7 @@ class AllMatchesSpider(scrapy.Spider):
 				Winning_Margin =int(split_result[3])
 				Runs_or_Wickets =split_result[4]
 			print(Winning_Team)
-			print(Winning_Margin)
-			print(Runs_or_Wickets)
-
+			
 		Season=response.xpath('//div[@class="cscore_info-overview"]/text()').get()
 		Season=Season.split(" ")
 		Season=Season[-1]
@@ -81,11 +84,6 @@ class AllMatchesSpider(scrapy.Spider):
 		#getting batting and bowling urls
 		Batting_Player_URLs=response.xpath('//div[@class="cell batsmen"]/a/@href').extract()
 		for player in Batting_Player_URLs:
-			#taking unique url and this will not scrape all the matches 
-			#as unique url is passed to the list
-			#this is good for getting player urls and for
-			#match data remove the if statement.
-			# if player not in Player_URLs:
 			Player_URLs.extend(Batting_Player_URLs)
 		Bowling_Player_URLs=response.xpath('//*[@class="scorecard-section bowling"]/table/tbody/tr/td/a/@href').extract()
 		for player in Bowling_Player_URLs:
@@ -94,10 +92,10 @@ class AllMatchesSpider(scrapy.Spider):
 
 		for p in Player_URLs:
 			yield Request(p,callback=self.parse_players,meta={'p':p,
-									'Winning_Team':Winning_Team,
+									Winning_Team':Winning_Team,
 									'Winning_Margin':Winning_Margin,
 									'Runs_or_Wickets':Runs_or_Wickets,
-									'Season':Season})
+									'Season':Season															})
 		#meta will send one data at a time
 			
 	def parse_players(self,response):
