@@ -86,11 +86,11 @@ class AllMatchesSpider(scrapy.Spider):
 			#this is good for getting player urls and for
 			#match data remove the if statement.
 			# if player not in Player_URLs:
-			Player_URLs.append(Batting_Player_URLs)
+			Player_URLs.extend(Batting_Player_URLs)
 		Bowling_Player_URLs=response.xpath('//*[@class="scorecard-section bowling"]/table/tbody/tr/td/a/@href').extract()
 		for player in Bowling_Player_URLs:
 			# if player not in Player_URLs:
-			Player_URLs.append(Bowling_Player_URLs)
+			Player_URLs.extend(Bowling_Player_URLs)
 
 		for p in Player_URLs:
 			yield Request(p,callback=self.parse_players,meta={'p':p,
