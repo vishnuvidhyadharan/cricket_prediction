@@ -7,11 +7,19 @@ class AllMatchesSpider(scrapy.Spider):
 	name = 'all_matches'
 	allowed_domains = ['www.espncricinfo.com']
 	start_urls = ['http://www.espncricinfo.com/ci/engine/series/index.html']
+	xpaths='''response.xpath('//section[@class="series-summary-wrap"]').extract()[1]''','''
+			response.xpath('//ul[@class="cscore_list"]/li/a[contains(@rel,
+			 "event,boxscore,scorecard,match,desktop")]/@href').extract()
+			''','''response.xpath('//div[@class="cell batsmen"]/a/@href').extract()
+			''','''response.xpath('//*[@class="scorecard-section bowling"]/table/tbody/tr/td/a/@href').extract()
+			''','''response.xpath('//div[@class="ciPlayernametxt"]/div/h1/text()').extract_first()
+			''','''response.xpath('//div[@class="ciPlayernametxt"]/div/h3/b/text()').extract_first()'''
+
 	def parse(self, response):
 		seasons=response.xpath('//*[@class="season-links"]/a/@href').extract()
 		x=0
 		for season in seasons:
-			if x<10:
+			if x<35:
 				absolute_url=response.urljoin(season)
 				yield Request(absolute_url,callback=self.parse_season)
 				#return absolute_url
@@ -22,20 +30,93 @@ class AllMatchesSpider(scrapy.Spider):
 		y=str("#")+all_one_day+str("#")
 		sel=Selector(text=y)
 		one_day=sel.xpath('//div[@class="teams"]/a/@href').extract()
+		all_countries=('England', 'Afghanistan', 'New Zealand', 'South Africa',
+							 'Australia', 'Bangladesh', 'Sri Lanka', 'India', 'Pakistan', 'West Indies',
+							 'england', 'afghanistan', 'new zealand', 'south africa', 'australia',
+							  'bangladesh', 'sri lanka', 'india', 'pakistan', 'west indies')
 		for day in one_day:
-			yield Request(day,callback=self.parse_day,meta={'day':day})
+			d=day.split('-')
+			for word in d:
+				if word in all_countries:
+					yield Request(day,callback=self.parse_day,meta={'day':day})
+					break
+			# 	next
 	def parse_day(self,response):
 		scorecards= response.xpath('//ul[@class="cscore_list"]/li/a[contains(@rel, "event,boxscore,scorecard,match,desktop")]/@href').extract()
 		for scorecard in scorecards:
-			absolute_url_scorecard= "www.espncricinfo.com"+scorecard
+			absolute_url_scorecard= "http://www.espncricinfo.com"+scorecard
 			yield Request(absolute_url_scorecard,callback=self.parse_result,meta={'absolute_url_scorecard':absolute_url_scorecard})
 	def parse_result(self,response):
-		 result= response.xpath('//div[@class="cscore_notes"]/span/text()').extract_first()
-        	 result=result.split(" ")
-        	 Winning_Team =result[0]
-        	 Winning_Margin =int(result[3])
-        	 Runs_or_Wickets =result[4]
-        	 yield{'Winning_Team':Winning_Team,
-        	 'Winning_Margin':Winning_Margin,
-        	 'Runs_or_Wickets':Runs_or_Wickets}
+		
+		#creating an empty list
+		Player_URLs=[]
+		countries=('New', 'South','Sri','West',
+					'new', 'south','sri','west')
+		
 
+		#getting the match result
+		result= response.xpath('//div[@class="cscore_notes"]/span/text()').extract_first()
+		split_result=result.split(" ")
+		no_result=('tied','Tied','abandoned','Abandoned','result','Result','No','Match')
+
+
+		if split_result[0] not in no_result:
+			if split_result[0] in countries:
+				Winning_Team =split_result[0]+str(split_result[1])
+				Winning_Margin =int(split_result[4])
+				Runs_or_Wickets =split_result[5]
+			else:
+
+				Winning_Team =split_result[0]
+				Winning_Margin =int(split_result[3])
+				Runs_or_Wickets =split_result[4]
+			print(Winning_Team)
+			print(Winning_Margin)
+			print(Runs_or_Wickets)
+
+		Season=response.xpath('//div[@class="cscore_info-overview"]/text()').get()
+		Season=Season.split(" ")
+		Season=Season[-1]
+
+		#getting batting and bowling urls
+		Batting_Player_URLs=response.xpath('//div[@class="cell batsmen"]/a/@href').extract()
+		for player in Batting_Player_URLs:
+			#taking unique url and this will not scrape all the matches 
+			#as unique url is passed to the list
+			#this is good for getting player urls and for
+			#match data remove the if statement.
+			# if player not in Player_URLs:
+			Player_URLs.append(Batting_Player_URLs)
+		Bowling_Player_URLs=response.xpath('//*[@class="scorecard-section bowling"]/table/tbody/tr/td/a/@href').extract()
+		for player in Bowling_Player_URLs:
+			# if player not in Player_URLs:
+			Player_URLs.append(Bowling_Player_URLs)
+
+		for p in Player_URLs:
+			yield Request(p,callback=self.parse_players,meta={'p':p,
+															'Winning_Team':Winning_Team,
+															'Winning_Margin':Winning_Margin,
+															'Runs_or_Wickets':Runs_or_Wickets,
+															'Season':Season															})
+		#meta will send one data at a time
+			
+	def parse_players(self,response):
+		Player_name=response.xpath('//div[@class="ciPlayernametxt"]/div/h1/text()').extract_first()
+		Country=response.xpath('//div[@class="ciPlayernametxt"]/div/h3/b/text()').extract_first()
+
+		#calling the meta data
+		Winning_Team = response.meta["Winning_Team"]
+		Winning_Margin = response.meta["Winning_Margin"]
+		Runs_or_Wickets = response.meta["Runs_or_Wickets"]
+		Season = response.meta["Season"]
+		#p=response.meta["p"]
+
+		yield{'Player_name':Player_name,
+			'Winning_Team':Winning_Team,
+			'Winning_Margin':Winning_Margin,
+			'Runs_or_Wickets':Runs_or_Wickets,
+			'Season':Season,
+			'Country':Country
+			}
+			
+#this will give the name of the palyer and the result of the match.
