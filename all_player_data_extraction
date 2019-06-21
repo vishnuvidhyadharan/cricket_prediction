@@ -11,9 +11,10 @@ import csv
 class OdiSpider(scrapy.Spider):
 	name = 'odi'
 	allowed_domains = ['www.espncricinfo.com']
-	start_urls = ['http://www.espncricinfo.com/australia/content/player/325026.html',
-					'http://www.espncricinfo.com/australia/content/player/219889.html']
-
+	start_urls = []
+	with open('player_url.csv','r') as urls:
+		for url in urls:
+			start_urls.append(url)
 	def parse(self, response):
 		Player_name=response.xpath('//div[@class="ciPlayernametxt"]/div/h1/text()').extract_first()
 		Batting_style=response.xpath('//p[@class="ciPlayerinformationtxt"]/b[.="Batting style"]/following-sibling::span[1]/text()').get()
